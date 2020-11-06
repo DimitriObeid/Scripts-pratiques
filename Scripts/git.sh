@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 
-username="DimitriObeid"
-confpath="/home/dimob/Projets/Linux-reinstall/.git/config"
+#***** Variables *****
+confpath="$HOME/Projets/$root/.git/config"  # Git config path
+project_root=git rev-parse --show-toplevel  # Project root directory
+username="DimitriObeid"                     # Your username
 
-# On initialise une variable nommée 'x' à 0.
-# Cette variable sert à compter chaque numéro de ligne.
+#***** Code *****
+# Initializing a variable named 'x' at 0.
+# This variable will be incremented after reading each line.
 x=0
 
-# On affiche le contenu du fichier de configuration de Git, puis on lit ces lignes.
+# Displayig the Git configuration file content, before reading its lines until the 7th line, which contains the information about the project URL according to the used communication protocol.
 cat "$confpath" | while read -r line; do
     x=$(( x+1 ))
 
-    # On récupère la ligne 7 du fichier de configuration local de Git.
     if [ $x -eq 7 ]; then
         echo "$line" > /tmp/git_tmp.line
         break
@@ -20,39 +22,36 @@ done
 
 line=$(cat /tmp/git_tmp.line)
 
-# Dans le cas où le protocole utilisé est le protocole HTTPS.
-if test "$line" = "url = https://github.com/$username/Linux-reinstall"; then
-    stty_orig=$(stty -g) # save original terminal setting.
-    stty -echo           # turn-off echoing.
+# If the HTTPS protocol is used, the script asks for your Git password to write it during the push step.
+# Don't worry, it won't be used or stored for malicious usage, as the variable will be erased at the end of the script.
+if test "$line" = "url = https://github.com/$username/$project_root"; then
+    stty_orig=$(stty -g) # Saving original terminal setting.
+    stty -echo           # Turning off echoing to avoid displaying the user's password.
     
-    IFS= read -rp "Entrez votre mot de passe Git : " gitpasswd  # read the password.
-    stty "$stty_orig"    # restore terminal setting.
+    IFS= read -rp "Enter your Git password : " gitpasswd  # read the password.
+    stty "$stty_orig"    # Restore terminal setting.
     echo ""
     
-    # On enregistre chaque fichier entré dans un tableau nommé "gitfiles" (l'option '-a' de la commande "read" permet d'enregistrer chaque valeur entrée dans un tableau).
-    read -rpa "Entrez les noms des fichiers à commit depuis la racine du projet : " gitfiles
-    echo ""
-    
-    read -rp "Entrez le nom du commit : " gitcommit
-    echo ""
+fi
 
-    # Faire un tableau et le parcourir via une boucle.
-    for _ in ${#gitfiles[@]}; do
-        echo "$_"
-        git add "$gitfiles"
-    done
+# Each file is registered into an array named "gitfiles" (the '-a' option of the "read" command allows to save each entered value in an array).
+read -rpa "Enter the name of all the file to commit from the project root directory : " gitfiles
+echo ""
     
+read -rp "Enter the commit's name : " gitcommit
+echo ""
+
+# Browsing the "gitfiles" array via a loop.
+for _ in ${#gitfiles[@]}; do
+    echo "$_"
+    git add "$gitfiles"
+done
+
+# Again, we check if the HTTPS protocol is used, since Git will ask your Git username and password, so the script can write the entered username and password.
+if [ "$line" = "url = https://github.com/$username/$project_root" ]; then
     git commit -m "$gitcommit" && git push
-    
-# Dans le cas où le protocole utilisé est le protocole SSH.
-elif test "$line" = "url = git@github.com:$username/Linux-reinstall"; then
-    read -rp "Entrez les noms des fichiers à commit : " gitfiles
-    echo ""
-    
-    read -rp "Entrez le nom du commit : " gitcommit
-    echo ""
-    
-    git add "$gitfiles" && git commit -m "$gitcommit" && git push
+else
+    git commit -m "$gitcommit" && git push
 fi
 
 exit 0
